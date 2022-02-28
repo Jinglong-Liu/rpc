@@ -2,74 +2,100 @@ package cn.edu.nju.rpc.server;
 
 import cn.edu.nju.rpc.Request;
 import cn.edu.nju.rpc.Response;
-import cn.edu.nju.rpc.ServiceDescriptor;
 import cn.edu.nju.rpc.codec.Decoder;
 import cn.edu.nju.rpc.codec.Encoder;
 import cn.edu.nju.rpc.common.utils.ReflectionUtils;
 import cn.edu.nju.rpc.transport.RequestHandler;
 import cn.edu.nju.rpc.transport.TransportServer;
-import lombok.extern.log4j.Log4j;
-import lombok.extern.log4j.Log4j2;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.Method;
 
 @Slf4j
 public class RpcServer {
-
     private RpcServerConfig config;
     private TransportServer net;
     private Encoder encoder;
     private Decoder decoder;
     private ServiceManager serviceManager;
     private ServiceInvoker serviceInvoker;
-    public RpcServer(RpcServerConfig config){
+
+    public RpcServer() {
+
+    }
+
+    public RpcServer(RpcServerConfig config) {
         this.config = config;
+
+        //net
         this.net = ReflectionUtils.newInstance(config.getTransportClass());
         this.net.init(config.getPort(),this.handler);
+
+        //codec
         this.encoder = ReflectionUtils.newInstance(config.getEncoderClass());
         this.decoder = ReflectionUtils.newInstance(config.getDecoderClass());
-        // service
+
+        //service
         this.serviceManager = new ServiceManager();
         this.serviceInvoker = new ServiceInvoker();
     }
-    public void register(Class interfaceClass,Object bean){
-        serviceManager.register(interfaceClass,bean);
+
+
+    public <T> void register(Class<T> interfaceClasss,T bean){
+        serviceManager.register(interfaceClasss,bean);
     }
+
     public void start(){
         this.net.start();
     }
+
     public void stop(){
         this.net.stop();
     }
+
     private RequestHandler handler = new RequestHandler() {
         @Override
-        public void onRequest(InputStream receive, OutputStream toResponse) {
+        public void onRequest(InputStream recive, OutputStream toResp) {
             Response resp = new Response();
             try {
-                byte[] inBytes = IOUtils.readFully(receive,receive.available());
-                Request request = decoder.decode(inBytes,Request.class);
+                byte[] inBytes = new byte[recive.available()];
+
+                IOUtils.readFully(recive,inBytes,0,recive.available());
+                // byte[] inBytes = IOUtils.readFully(recive,recive.available());
+                Request request = decoder.decode(inBytes,Request.class);//这里是从client传过来的
+
                 log.info("get request: {}",request);
-                ServiceInstance sis = serviceManager.lookup(request);
-                Object ret = serviceInvoker.invoke(sis,request);
+
+                /**
+                 * 这里理解有点复杂
+                 * 1.首先client传的是request对象 主要是 ServiceDescrptor决定是哪个方法 和 实参
+                 * 2.对于serviceManager已经在register这个RpcService时已经通过class 和 实例将serviceDescriptor与实例bean 用map装配起来
+                 */
+                ServiceInstance sis = serviceManager.lookup(request );//request封装了ServiceDescriptor描述字符串
+                /**
+                 * 反射调用两个参数 方法+实例 刚好是serviceManager的存储了
+                 */
+                Object ret = serviceInvoker.invoke(sis,request);//执行返回结果
+
+                resp.setData(ret);
 
             } catch (Exception e) {
-                e.printStackTrace();
                 log.warn(e.getMessage(),e);
                 resp.setCode(1);
-                resp.setMessage("RpcServer got error: " + e.getClass().getName()+" "+e.getMessage());
-            } finally {
-                byte[] outBytes = encoder.encode(resp);
+                resp.setMessage("RpcServer got error"+e.getClass().getName()+" : "+e.getMessage());
+
+            }finally {
                 try {
-                    toResponse.write(outBytes);
+                    byte[] outBytes = encoder.encode(resp);
+                    toResp.write(outBytes);
                     log.info("response client");
                 } catch (IOException e) {
                     log.warn(e.getMessage(),e);
                 }
+
             }
 
         }

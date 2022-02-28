@@ -26,12 +26,12 @@ public class ServiceManagerTest {
 
     @Test
     public void lookup() {
-        final Method[] methods = ReflectionUtils.getPublicMethods(TestInterface.class);
-        final ServiceDescriptor serviceDescriptor = ServiceDescriptor.from(TestInterface.class, methods[0]);
+        Method[] methods = ReflectionUtils.getPublicMethods(TestInterface.class);
+        ServiceDescriptor serviceDescriptor = ServiceDescriptor.from(TestInterface.class, methods[0]);
         Request request = new Request();
-        request.setService(serviceDescriptor);
+        request.setServiceDescriptor(serviceDescriptor);
 
-        final ServiceInstance instance = sm.lookup(request);
+        ServiceInstance instance = sm.lookup(request);
         assertNotNull(instance);
 
     }

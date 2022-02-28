@@ -9,6 +9,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * 选择哪个server去连接
+ */
 @Slf4j
 public class RandomTransportSelector implements TransportSelector{
     private List<TransportClient> clients;

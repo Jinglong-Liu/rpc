@@ -27,7 +27,7 @@
         <dependency>
             <groupId>cn.edu.nju</groupId>
             <artifactId>rpc-proto</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>${project.version}</version>
         </dependency>
     </dependencies>
 </project>
